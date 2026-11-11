@@ -1,0 +1,83 @@
+import discord
+import random
+
+intents = discord.Intents.default()
+intents.message_content = True
+client = discord.Client(intents=intents)
+
+size = 10
+emojis = ["🐥", "🟦", "🟩", "💀"]
+pipepos = {}
+birdy = size // 2
+vy = 0
+score = 0
+alive = True
+
+def reset_variables():
+    global pipepos, birdy, vy, score, alive
+    pipepos = {2: random.randint(3, size - 5), 8: random.randint(3, size - 5), 10: random.randint(3, size - 5)}
+    birdy = size // 2
+    vy = 0
+    score = 0
+    alive = True
+
+async def draw(message):
+    screen = ""
+    for y in range(1, size + 1):
+        line = ""
+        for x in range(1, size + 1):
+            pipe = x in pipepos and not (pipepos[x] <= y < pipepos[x] + 4)
+            if x == 5 and y == birdy:
+                line += emojis[0] if alive else emojis[3]
+            elif pipe:
+                line += emojis[2]
+            else:
+                line += emojis[1]
+        screen += line + "\n"
+    await message.channel.send(screen + "Score: " + str(score))
+
+def bird(key):
+    global vy, birdy
+    if key == "w":
+        vy = -2
+    else:
+        vy += 1
+    birdy += vy
+
+def pipes():
+    global pipepos
+    new_pipes = {}
+    for i in pipepos.keys():
+        if i == 1:
+            new_pipes[10] = random.randint(3, size - 5)
+        else:
+            new_pipes[i - 1] = pipepos[i]
+    pipepos = new_pipes
+
+def death_check():
+    global alive
+    in_bounds = birdy in range(1, size + 1)
+    hit_pipe = any(x == 5 and not (gap <= birdy < gap + 4) for x, gap in pipepos.items())
+    alive = in_bounds and not hit_pipe
+
+async def gameloop(key, message):
+    global score
+    if key == "flappy":
+        reset_variables()
+    elif alive:
+        bird(key)
+        pipes()
+        death_check()
+        if alive:
+            score += 1
+    await draw(message)
+
+@client.event
+async def on_message(message):
+    if message.author == client.user or message.author.bot:
+        return
+
+    if message.content in ["flappy", "w", "e"]:
+        await gameloop(message.content, message)
+
+client.run("YOUR_BOT_TOKEN_HERE")
